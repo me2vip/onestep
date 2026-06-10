@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>一级台阶 · 狠话与真心</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="stage"></canvas>
+
+    <!-- 顶部标题 -->
+    <header class="topbar">
+      <div class="title">
+        <span class="logo-dot"></span>
+        <h1>一级台阶</h1>
+      </div>
+      <div class="subtitle">往上一步，是狠话；往下一步，是真心。</div>
+    </header>
+
+    <!-- 启动遮罩 -->
+    <div id="starter" class="starter">
+      <div class="starter-inner">
+        <div class="starter-title">欢迎来到 · 一级台阶</div>
+        <p class="starter-desc">每一级台阶，承载着一句或尖锐或温暖的话语。<br />点击下方，开始你的旅程。</p>
+        <button id="startBtn" class="start-btn">
+          <span>开始体验</span>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M13 5l7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 控制面板 -->
+    <aside id="panel" class="panel">
+      <div class="panel-header">
+        <div class="panel-title">控制面板</div>
+        <button id="panelToggle" class="panel-toggle" title="收起/展开">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="panel-body">
+        <!-- 模式切换 -->
+        <section class="ctrl-group">
+          <label class="ctrl-label">模式</label>
+          <div class="mode-switch">
+            <button class="mode-btn active" data-mode="harsh">
+              <span class="mode-icon">✦</span>
+              <span>狠话</span>
+            </button>
+            <button class="mode-btn" data-mode="true">
+              <span class="mode-icon">✧</span>
+              <span>真心</span>
+            </button>
+            <button class="mode-btn" data-mode="mix">
+              <span class="mode-icon">✺</span>
+              <span>混合</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- 滚动速度 -->
+        <section class="ctrl-group">
+          <label class="ctrl-label">
+            滚动速度
+            <span id="speedValue" class="ctrl-value">1.0x</span>
+          </label>
+          <input id="speedRange" type="range" min="0.2" max="3" step="0.1" value="1" class="ctrl-range" />
+        </section>
+
+        <!-- 特效强度 -->
+        <section class="ctrl-group">
+          <label class="ctrl-label">
+            粒子特效
+            <span id="fxValue" class="ctrl-value">中</span>
+          </label>
+          <input id="fxRange" type="range" min="0" max="100" step="5" value="50" class="ctrl-range" />
+        </section>
+
+        <!-- 文字大小 -->
+        <section class="ctrl-group">
+          <label class="ctrl-label">
+            文字大小
+            <span id="sizeValue" class="ctrl-value">16px</span>
+          </label>
+          <input id="sizeRange" type="range" min="12" max="28" step="1" value="16" class="ctrl-range" />
+        </section>
+
+        <!-- 音乐 -->
+        <section class="ctrl-group">
+          <label class="ctrl-label">
+            背景音乐
+            <span id="musicState" class="ctrl-value">关闭</span>
+          </label>
+          <div class="music-row">
+            <button id="musicBtn" class="pill-btn">
+              <svg id="musicIcon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18V5l12-2v13"/>
+                <circle cx="6" cy="18" r="3"/>
+                <circle cx="18" cy="16" r="3"/>
+              </svg>
+              <span id="musicBtnText">开启</span>
+            </button>
+            <label class="file-btn">
+              <input id="fileInput" type="file" accept="audio/*" hidden />
+              <span>上传音乐</span>
+            </label>
+          </div>
+          <label class="ctrl-label inline">
+            音量
+            <span id="volValue" class="ctrl-value">60%</span>
+          </label>
+          <input id="volRange" type="range" min="0" max="100" step="1" value="60" class="ctrl-range" />
+        </section>
+
+        <!-- 操作按钮 -->
+        <section class="ctrl-group actions">
+          <button id="randomBtn" class="primary-btn">
+            <span>随机语录</span>
+          </button>
+          <button id="resetBtn" class="ghost-btn">
+            <span>重置滚动</span>
+          </button>
+        </section>
+
+        <div class="panel-footer">
+          <span id="currentQuote" class="quote-hint">— 共 0 条 —</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 当前主显语录 -->
+    <div id="quoteOverlay" class="quote-overlay">
+      <div class="quote-wrap">
+        <div class="quote-tag" id="quoteTag">狠话</div>
+        <div class="quote-text" id="quoteText"></div>
+        <div class="quote-author" id="quoteAuthor"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/canvas.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
