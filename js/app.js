@@ -11,11 +11,20 @@
   function applyQuotes(mode) {
     const data = window.QUOTES;
     let list;
-    if (mode === 'harsh') list = data.harsh.slice();
-    else if (mode === 'true') list = data.true.slice();
-    else list = data.harsh.concat(data.true);
-    scene.setMode(mode);
-    scene.setQuotes(list);
+    if (mode === 'harsh') {
+      list = data.harsh.slice();
+      scene.setMode(mode);
+      scene.setQuotes(list);
+    } else if (mode === 'true') {
+      list = data.true.slice();
+      scene.setMode(mode);
+      scene.setQuotes(list);
+    } else {
+      // mix 模式：使用双池形式，供交替开关生效
+      scene.setMode(mode);
+      scene.setQuotes(data.harsh.slice(), data.true.slice());
+      list = scene.quotes;
+    }
     $('currentQuote').textContent = '— 共 ' + list.length + ' 条 —';
   }
 
@@ -25,21 +34,23 @@
   const textEl = $('quoteText');
   const authorEl = $('quoteAuthor');
 
-  function showQuote(quote, mode) {
+  // quoteType: 'harsh' | 'true'（实际语录类型），用于决定标签颜色
+  function showQuote(quote, quoteType) {
     if (!quote) return;
+    const type = quoteType || quote.type || 'harsh';
     overlay.classList.remove('show');
     // 强制回流以重新播放动画
     void overlay.offsetWidth;
-    tag.textContent = (mode === 'harsh') ? '狠话' : (mode === 'true') ? '真心' : '语录';
+    tag.textContent = (type === 'true') ? '真心' : '狠话';
     textEl.textContent = quote.text;
     authorEl.textContent = '— ' + (quote.author || '网络');
     overlay.classList.remove('mode-true');
-    if (mode === 'true') overlay.classList.add('mode-true');
+    if (type === 'true') overlay.classList.add('mode-true');
     overlay.classList.add('show');
   }
 
-  scene.onMainQuoteChange = function (q) {
-    showQuote(q, currentMode);
+  scene.onMainQuoteChange = function (q, idx, type) {
+    showQuote(q, type);
   };
 
   // 面板折叠
@@ -56,12 +67,20 @@
       btn.classList.add('active');
       const mode = btn.getAttribute('data-mode');
       currentMode = mode;
-      panel.classList.remove('mode-harsh', 'mode-true');
+      panel.classList.remove('mode-harsh', 'mode-true', 'mode-mix');
       if (mode === 'harsh') panel.classList.add('mode-harsh');
       if (mode === 'true') panel.classList.add('mode-true');
+      if (mode === 'mix') panel.classList.add('mode-mix');
       applyQuotes(mode);
       scene.shuffle();
     });
+  });
+
+  // 混合模式 — 奇偶交替开关
+  $('alternateToggle').addEventListener('change', function (e) {
+    scene.setMixAlternate(e.target.checked);
+    // 刷新总条数显示（交替模式可能改变数组长度）
+    $('currentQuote').textContent = '— 共 ' + scene.quotes.length + ' 条 —';
   });
 
   // 速度
@@ -127,7 +146,7 @@
   // 随机语录
   $('randomBtn').addEventListener('click', function () {
     const q = scene.highlightRandom();
-    if (q) showQuote(q, currentMode);
+    if (q) showQuote(q, q.type);
   });
 
   $('resetBtn').addEventListener('click', function () {
@@ -149,7 +168,8 @@
 
     // 显示第一条主显语录
     if (scene.quotes.length) {
-      showQuote(scene.quotes[0], currentMode);
+      const first = scene.quotes[0];
+      showQuote(first, first.type);
     }
   });
 

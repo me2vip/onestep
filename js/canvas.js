@@ -10,6 +10,9 @@
     // 状态
     this.mode = 'harsh';            // harsh | true | mix
     this.quotes = [];
+    this.harshPool = [];            // 混合模式下的狠话语录池
+    this.truePool = [];             // 混合模式下的真心语录池
+    this.mixAlternate = false;      // 混合模式下是否奇偶交替
     this.speed = 1.0;                // 滚动速度
     this.fxIntensity = 50;           // 特效强度 0-100
     this.fontSize = 16;              // 台阶文字大小
@@ -87,17 +90,75 @@
     this.mode = mode;
   };
 
-  CanvasScene.prototype.setQuotes = function (arr) {
-    this.quotes = arr || [];
-    // 打乱顺序
-    for (let i = this.quotes.length - 1; i > 0; i--) {
+  // 设置语录：
+  // - 单数组形式：setQuotes(list)
+  // - 双池形式：setQuotes(harshList, trueList) — 供混合模式使用
+  CanvasScene.prototype.setQuotes = function (a, b) {
+    if (Array.isArray(a) && Array.isArray(b)) {
+      this.harshPool = a.slice();
+      this.truePool = b.slice();
+      this._rebuildMixQuotes();
+    } else {
+      this.quotes = (a || []).slice();
+      this.harshPool = [];
+      this.truePool = [];
+      this._shuffle(this.quotes);
+    }
+  };
+
+  // 根据 mixAlternate 开关重建混合模式语录数组
+  CanvasScene.prototype._rebuildMixQuotes = function () {
+    const h = this.harshPool.slice();
+    const t = this.truePool.slice();
+    if (!h.length && !t.length) {
+      this.quotes = [];
+      return;
+    }
+    if (this.mixAlternate) {
+      // 奇偶交替：先把两个池子各自打乱，然后 狠→真→狠→真 交替取
+      this._shuffle(h);
+      this._shuffle(t);
+      const result = [];
+      const maxLen = Math.max(h.length, t.length);
+      for (let i = 0; i < maxLen; i++) {
+        if (h.length) result.push(h[i % h.length]);
+        if (t.length) result.push(t[i % t.length]);
+      }
+      this.quotes = result;
+    } else {
+      // 随机混合：合并后打乱
+      const combined = h.concat(t);
+      this._shuffle(combined);
+      this.quotes = combined;
+    }
+  };
+
+  // 切换交替模式开关
+  CanvasScene.prototype.setMixAlternate = function (on) {
+    const v = !!on;
+    if (this.mixAlternate === v) return;
+    this.mixAlternate = v;
+    // 如果已有两个语录池，重建顺序
+    if (this.harshPool.length || this.truePool.length) {
+      this._rebuildMixQuotes();
+      this.offset = 0;
+    }
+  };
+
+  CanvasScene.prototype._shuffle = function (arr) {
+    if (!arr || !arr.length) return;
+    for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      const t = this.quotes[i]; this.quotes[i] = this.quotes[j]; this.quotes[j] = t;
+      const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
     }
   };
 
   CanvasScene.prototype.shuffle = function () {
-    this.setQuotes(this.quotes.slice());
+    if (this.harshPool.length || this.truePool.length) {
+      this._rebuildMixQuotes();
+    } else {
+      this._shuffle(this.quotes);
+    }
     this.offset = 0;
   };
 
@@ -247,6 +308,9 @@
     ctx.font = `${this.fontSize}px ${getComputedStyle(document.body).fontFamily}`;
     ctx.textBaseline = 'middle';
 
+    const harshScheme = this.colorSchemes.harsh;
+    const trueScheme = this.colorSchemes.true;
+
     // 主显台阶段：最大的字体（在 overlay 里显示，这里台阶里只是罗列）
     for (let i = 0; i < maxSteps; i++) {
       // 相对位置：i=0 是屏幕最下方可见一级，然后 i 越大越往上
@@ -255,15 +319,29 @@
       if (cy < -stepH * 2 || cy > H + stepH) continue;
 
       // 计算语录索引
-      // 让屏幕中央附近的索引稳定变化
-      let quoteIdx;
+      const quoteIdx = ((Math.floor(i + this.offset / stepH) % this.quotes.length) + this.quotes.length) % this.quotes.length;
+      const quote = this.quotes[quoteIdx] || { text: '', author: '', type: 'harsh' };
+
+      // 当前台阶的颜色方案：
+      // - 整体背景、粒子、顶面/立面沿用当前模式的 scheme（mix 保留蓝色主题）
+      // - 棱边发光、文字颜色：mix 模式下根据 quote.type 用粉/金色点缀
+      let edgeColor = scheme.edge;
+      let edgeSoftColor = scheme.edgeSoft;
+      let textColor = scheme.text;
+      let textDimColor = scheme.textDim;
       if (this.mode === 'mix') {
-        quoteIdx = Math.floor(i + this.offset / stepH);
-      } else {
-        quoteIdx = Math.floor(i + this.offset / stepH);
+        if (quote.type === 'true') {
+          edgeColor = trueScheme.edge;
+          edgeSoftColor = trueScheme.edgeSoft;
+          textColor = trueScheme.text;
+          textDimColor = trueScheme.textDim;
+        } else {
+          edgeColor = harshScheme.edge;
+          edgeSoftColor = harshScheme.edgeSoft;
+          textColor = harshScheme.text;
+          textDimColor = harshScheme.textDim;
+        }
       }
-      quoteIdx = ((quoteIdx % this.quotes.length) + this.quotes.length) % this.quotes.length;
-      const quote = this.quotes[quoteIdx] || { text: '', author: '' };
 
       // 透视缩小：越往上越小
       const scale = Math.max(0.35, 1 - (startY - cy) / H * 1.1);
@@ -280,18 +358,12 @@
       const frontTopY = cy;
       const frontBottomY = cy + 4 * scale;
 
-      // 颜色渐变：顶面亮，前方暗
-      const topGrad = ctx.createLinearGradient(xL, topY, xR, topY);
-      topGrad.addColorStop(0, scheme.front);
-      topGrad.addColorStop(0.5, scheme.top);
-      topGrad.addColorStop(1, scheme.front);
-
-      // 顶面
+      // 顶面（沿用当前模式的主题色，保留 mix 蓝色主题）
       ctx.beginPath();
       ctx.moveTo(xL, frontTopY);
       ctx.lineTo(xL - depth, topY);
       ctx.lineTo(xR - depth, topY - (xR - xL) * 0.02);
-      ctx.lineTo(xR, frontTopY - (xR - xL) * 0.00);
+      ctx.lineTo(xR, frontTopY);
       ctx.closePath();
       const topFill = ctx.createLinearGradient(xL, topY, xR, frontTopY);
       topFill.addColorStop(0, scheme.front);
@@ -316,10 +388,10 @@
       ctx.fillStyle = frontGrad;
       ctx.fill();
 
-      // 棱边发光线
-      ctx.strokeStyle = scheme.edge;
+      // 棱边发光线（按语录类型点缀色）
+      ctx.strokeStyle = edgeColor;
       ctx.lineWidth = 1.2 * scale;
-      ctx.shadowColor = scheme.edgeSoft;
+      ctx.shadowColor = edgeSoftColor;
       ctx.shadowBlur = 14 * scale;
       ctx.beginPath();
       ctx.moveTo(xL, frontTopY);
@@ -345,14 +417,14 @@
 
       // 高亮处理
       if (this.highlightIndex === quoteIdx && scale > 0.6) {
-        ctx.shadowColor = scheme.edge;
+        ctx.shadowColor = edgeColor;
         ctx.shadowBlur = 24;
-        ctx.fillStyle = scheme.text;
+        ctx.fillStyle = textColor;
         ctx.globalAlpha = 1;
         ctx.fillText(displayText, tx, ty);
         ctx.shadowBlur = 0;
       } else {
-        ctx.fillStyle = (scale > 0.7) ? scheme.text : scheme.textDim;
+        ctx.fillStyle = (scale > 0.7) ? textColor : textDimColor;
         ctx.globalAlpha = alpha;
         ctx.fillText(displayText, tx, ty);
       }
@@ -366,11 +438,12 @@
       }
     }
 
-    // 回调：切换主显语录
+    // 回调：切换主显语录（传回语录对象、索引、类型）
     if (mainIndex !== -1 && mainIndex !== this._lastMainIndex) {
       this._lastMainIndex = mainIndex;
       if (typeof this.onMainQuoteChange === 'function') {
-        this.onMainQuoteChange(this.quotes[mainIndex], mainIndex);
+        const q = this.quotes[mainIndex];
+        this.onMainQuoteChange(q, mainIndex, q && q.type);
       }
     }
   };
